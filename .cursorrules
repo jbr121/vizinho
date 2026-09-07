@@ -1,0 +1,62 @@
+# Projeto: Marketplace de Serviços Locais (Vizinho)
+
+## 1. Visão Geral
+Aplicação web mobile-first intermediadora entre consumidores e prestadores de serviços locais (instalação de ar-condicionado, reparos, faxina, jardinagem, frete/mudança, etc.).
+O objetivo é digitalizar e acelerar a dinâmica do "boca a boca" por meio de reputação confiável, geolocalização e intermediação segura.
+
+Produto desta pasta: **Vizinho**. Há dois clientes:
+- Web (Next.js) em `src/app`
+- Android (Expo / React Native) em `mobile/`, pacote `app.vizinho`
+
+UI em português (pt-BR), dados de demonstração em São Paulo.
+
+## 2. Stack (obrigatória neste repositório)
+- Next.js (App Router) + TypeScript estrito para a web
+- Expo SDK 57 + React Native para o app Android (`mobile/`)
+- Tailwind CSS + shadcn/ui **somente na web**
+- No Android, use os primitivos de `mobile/components/ui.tsx` - não instale outra lib de UI
+- Clean Architecture em `src/domain`, `src/application`, `src/infrastructure`
+- O app Android espelha as regras em `mobile/core/` (mesmo seed, reducer e consultas)
+- Persistência atual: store em memória para a demo sem credenciais
+- Schema-alvo PostgreSQL em `prisma/schema.prisma`
+
+## 3. Perfis de Usuário
+- **Cliente:** busca por categoria ou raio, pede orçamento (fotos/descrição), agenda ou pede imediato, paga e avalia.
+- **Prestador:** perfil e especialidades, raio e disponibilidade, recebe pedidos, envia proposta, executa, recebe repasse.
+- **Admin:** moderação, verificação documental, disputas e controle do escrow.
+
+No MVP local, a troca de perfil é pelo menu do avatar (contas de demonstração). Auth real (NextAuth/Clerk + Postgres) entra só quando o banco estiver ligado.
+
+## 4. Funcionalidades do recorte atual
+- Busca e listagem por proximidade (Haversine) e categoria
+- Perfil do prestador com reputação
+- Pedido de orçamento + chat (texto; anexos simulados por nome de arquivo)
+- Proposta, aceite com retenção (escrow 12%) e split
+- Agendamento imediato ou data/hora
+- Avaliação 1-5 + comentário, bidirecional após conclusão
+- Painel do prestador e fila admin (documentos, disputas, valores retidos)
+
+## 5. Arquitetura e pastas
+```
+src/domain          entidades, geo, erros
+src/application     consultas e regras de leitura
+src/infrastructure  seed + reducer + store
+src/components      UI (shadcn em ui/, marketplace/, views/)
+src/app             rotas Next.js
+prisma/schema.prisma
+```
+- Regras de negócio no reducer (`infrastructure/reducer.ts`), não em componentes.
+- Erros de domínio (`DomainError`) viram toast amigável. Não engolir falha sem feedback.
+- Componentes shadcn em `src/components/ui` - estender, não reescrever primitivos.
+
+## 6. Princípios
+- SOLID, tipagem estrita, componentização reutilizável
+- Copy real em pt-BR; sem lorem; estados vazios, loading e erro cobertos
+- Mobile first (nav inferior) e desktop (nav superior)
+- Pagamento, chat e geo desta demo são simulados; não fingir PSP real
+
+## 7. Quando evoluir
+- Auth + Prisma Client + Postgres
+- Upload real (S3/R2) para fotos/vídeos
+- Gateway de pagamento com split (ex.: Stripe Connect / Mercado Pago)
+- Push e mapa real (Mapbox) só com chave no `.env` e fallback local

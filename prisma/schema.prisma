@@ -1,0 +1,269 @@
+// Target schema for PostgreSQL. The running MVP uses an in-memory store
+// with the same entities so the UI can be exercised without credentials.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CLIENT
+  PROVIDER
+  ADMIN
+}
+
+enum VerificationStatus {
+  UNSUBMITTED
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum RequestStatus {
+  OPEN
+  PROPOSALS_RECEIVED
+  ACCEPTED
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+enum ScheduleType {
+  IMMEDIATE
+  SCHEDULED
+}
+
+enum ProposalStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  WITHDRAWN
+}
+
+enum JobStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  HELD
+  RELEASED
+  REFUNDED
+  FAILED
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  SYSTEM
+}
+
+enum DocumentType {
+  RG
+  CNH
+  MEI
+  RESIDENCIA
+  ANTECEDENTES
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  phone     String
+  role      UserRole
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clientProfile   ClientProfile?
+  providerProfile ProviderProfile?
+  sentMessages    ChatMessage[]    @relation("MessageSender")
+  reviewsGiven    Review[]         @relation("ReviewAuthor")
+  reviewsReceived Review[]         @relation("ReviewSubject")
+  clientRequests  ServiceRequest[] @relation("ClientRequests")
+  clientJobs      Job[]            @relation("ClientJobs")
+  providerJobs    Job[]            @relation("ProviderJobs")
+}
+
+model ClientProfile {
+  userId       String  @id
+  address      String
+  neighborhood String
+  city         String
+  lat          Float
+  lng          Float
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ProviderProfile {
+  userId             String             @id
+  bio                String
+  radiusKm           Int
+  lat                Float
+  lng                Float
+  neighborhood       String
+  verificationStatus VerificationStatus @default(PENDING)
+  ratingAvg          Float              @default(0)
+  ratingCount        Int                @default(0)
+  completedJobs      Int                @default(0)
+  yearsExperience    Int
+  startingPriceCents Int
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialties        ProviderSpecialty[]
+  proposals          Proposal[]
+  documents          ProviderDocument[]
+  availability       Availability[]
+}
+
+model Category {
+  id          String               @id @default(cuid())
+  slug        String               @unique
+  name        String
+  description String
+  icon        String
+  specialties ProviderSpecialty[]
+  requests    ServiceRequest[]
+}
+
+model ProviderSpecialty {
+  providerId String
+  categoryId String
+  provider   ProviderProfile @relation(fields: [providerId], references: [userId], onDelete: Cascade)
+  category   Category        @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([providerId, categoryId])
+}
+
+model Availability {
+  id         String          @id @default(cuid())
+  providerId String
+  weekday    Int
+  startTime  String
+  endTime    String
+  provider   ProviderProfile @relation(fields: [providerId], references: [userId], onDelete: Cascade)
+
+  @@index([providerId, weekday])
+}
+
+model ServiceRequest {
+  id                  String        @id @default(cuid())
+  clientId            String
+  categoryId          String
+  title               String
+  description         String
+  attachments         String[]
+  address             String
+  lat                 Float
+  lng                 Float
+  scheduleType        ScheduleType
+  scheduledAt         DateTime?
+  preferredProviderId String?
+  status              RequestStatus @default(OPEN)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  client              User          @relation("ClientRequests", fields: [clientId], references: [id])
+  category            Category      @relation(fields: [categoryId], references: [id])
+  proposals           Proposal[]
+  job                 Job?
+  messages            ChatMessage[]
+
+  @@index([clientId, status])
+  @@index([categoryId, status])
+  @@index([lat, lng])
+}
+
+model Proposal {
+  id          String         @id @default(cuid())
+  requestId   String
+  providerId  String
+  amountCents Int
+  etaHours    Int
+  message     String
+  status      ProposalStatus @default(PENDING)
+  createdAt   DateTime       @default(now())
+  request     ServiceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  provider    ProviderProfile @relation(fields: [providerId], references: [userId])
+  job         Job?
+
+  @@unique([requestId, providerId])
+}
+
+model Job {
+  id          String     @id @default(cuid())
+  requestId   String     @unique
+  proposalId  String     @unique
+  clientId    String
+  providerId  String
+  status      JobStatus
+  scheduledAt DateTime?
+  startedAt   DateTime?
+  completedAt DateTime?
+  request     ServiceRequest @relation(fields: [requestId], references: [id])
+  proposal    Proposal       @relation(fields: [proposalId], references: [id])
+  client      User           @relation("ClientJobs", fields: [clientId], references: [id])
+  provider    User           @relation("ProviderJobs", fields: [providerId], references: [id])
+  payment     Payment?
+  reviews     Review[]
+}
+
+model ChatMessage {
+  id        String         @id @default(cuid())
+  requestId String
+  senderId  String
+  type      MessageType    @default(TEXT)
+  body      String
+  createdAt DateTime       @default(now())
+  request   ServiceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  sender    User           @relation("MessageSender", fields: [senderId], references: [id])
+
+  @@index([requestId, createdAt])
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  jobId      String
+  fromUserId String
+  toUserId   String
+  rating     Int
+  comment    String
+  createdAt  DateTime @default(now())
+  job        Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  author     User     @relation("ReviewAuthor", fields: [fromUserId], references: [id])
+  subject    User     @relation("ReviewSubject", fields: [toUserId], references: [id])
+
+  @@unique([jobId, fromUserId])
+}
+
+model Payment {
+  id                 String        @id @default(cuid())
+  jobId              String        @unique
+  amountCents        Int
+  platformFeeCents   Int
+  providerAmountCents Int
+  status             PaymentStatus @default(PENDING)
+  createdAt          DateTime      @default(now())
+  releasedAt         DateTime?
+  job                Job           @relation(fields: [jobId], references: [id], onDelete: Cascade)
+}
+
+model ProviderDocument {
+  id          String             @id @default(cuid())
+  providerId  String
+  type        DocumentType
+  fileName    String
+  status      VerificationStatus @default(PENDING)
+  submittedAt DateTime           @default(now())
+  notes       String?
+  provider    ProviderProfile    @relation(fields: [providerId], references: [userId], onDelete: Cascade)
+}

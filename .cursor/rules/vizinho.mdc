@@ -1,0 +1,35 @@
+---
+description: Contexto mestre do marketplace Vizinho (web Next.js + Android Expo)
+alwaysApply: true
+---
+
+# Projeto: Marketplace de Serviços Locais (Vizinho)
+
+## Visão geral
+Aplicação web mobile-first intermediadora entre consumidores e prestadores de serviços locais (instalação de ar-condicionado, reparos, faxina, jardinagem, frete/mudança, etc.). Digitaliza o "boca a boca" com reputação, geolocalização e intermediação segura.
+
+Clientes: web Next.js em `src/app`; Android Expo em `mobile/` (`app.vizinho`). UI em pt-BR; demo em São Paulo.
+
+## Stack
+- Next.js (App Router) + TypeScript estrito na web
+- Expo SDK 57 + React Native no Android
+- Tailwind + shadcn/ui **somente na web**; no Android use `mobile/components/ui.tsx`
+- Clean Architecture: `src/domain`, `src/application`, `src/infrastructure`
+- Android espelha regras em `mobile/core/` (mesmo seed, reducer e consultas)
+- Store em memória na demo; schema-alvo em `prisma/schema.prisma`
+
+## Perfis
+- Cliente: busca, orçamento, agenda/imediato, paga, avalia
+- Prestador: perfil, raio, propostas, execução, repasse
+- Admin: moderação, documentos, disputas, escrow
+- MVP local troca perfil pelo menu do avatar (contas demo)
+
+## Recorte atual
+Busca Haversine + categoria; perfil com reputação; orçamento + chat; proposta com escrow 12%; agendamento; avaliação 1-5 bidirecional; painel prestador e fila admin.
+
+## Regras
+- Negócio no reducer (`infrastructure/reducer.ts`), não em componentes
+- `DomainError` vira toast; não engolir falha sem feedback
+- Estender shadcn em `src/components/ui`, não reescrever primitivos
+- Copy real em pt-BR; sem lorem; cobrir vazio, loading e erro
+- Pagamento, chat e geo desta demo são simulados
